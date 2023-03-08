@@ -1,0 +1,72 @@
+﻿@page "/validate-license-key"
+@using System.Net;
+@using LicenseKeyAPI.Data;
+@using static System.Net.WebRequestMethods;
+@using static LicenseKeyAPI.Pages.GenerateLicenseKey;
+@inject HttpClient Http;
+
+<h3>Validate License Key</h3>
+
+<EditForm Model="@licenseKey" OnValidSubmit="ValidateKey">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="fullName">Full Name</label>
+        <InputText id="fullName" class="form-control" @bind-Value="@licenseKey.FullName" />
+        <ValidationMessage For="@(() => licenseKey.FullName)" />
+    </div>
+
+    <div class="form-group">
+        <label for="licenseKey">License Key</label>
+        <InputText id="licenseKey" class="form-control" @bind-Value="@licenseKey.Key" />
+        <ValidationMessage For="@(() => licenseKey.Key)" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Validate Key</button>
+</EditForm>
+
+@if (validated)
+{
+    <div class="alert alert-success" role="alert">
+        License key is valid
+    </div>
+}
+else if (showError)
+{
+    <div class="alert alert-danger" role="alert">
+        License key is invalid
+    </div>
+}
+
+@code {
+    private LicenseKeyModel licenseKey = new LicenseKeyModel();
+    private bool validated = false;
+    private bool showError = false;
+
+    private async Task ValidateKey()
+    {
+        try{
+            var response = await Http.PostAsJsonAsync("api/LicenseKeys/IsValidLicenseKey", new
+            {
+                full_name = licenseKey.FullName,
+                license_key = licenseKey.Key
+            }).ConfigureAwait(false);
+            //response.EnsureSuccessStatusCode();
+            if (response.StatusCode != HttpStatusCode.NotFound)
+            {
+                validated = true;
+                showError = false;
+            }
+            else
+            {
+                validated = false;
+                showError = true;
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
+    }
+}

@@ -1,0 +1,91 @@
+﻿@page "/generate-license-key"
+@using System.Net;
+@using System.ComponentModel.DataAnnotations;
+@inject HttpClient Http
+@using Microsoft.JSInterop
+@using System.Text;
+@using LicenseKeyAPI.Data;
+@inject IJSRuntime JS
+
+<h3>Generate License Key</h3>
+
+<EditForm Model="@licenseKey" OnValidSubmit="GenerateKey">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="fullName">Full Name</label>
+        <InputText id="fullName" class="form-control" @bind-Value="@licenseKey.FullName" />
+        <ValidationMessage For="@(() => licenseKey.FullName)" />
+    </div>
+
+    <div class="form-group">
+        <label for="softwareName">Software Name</label>
+        <InputText id="softwareName" class="form-control" @bind-Value="@licenseKey.SoftwareName" />
+        <ValidationMessage For="@(() => licenseKey.SoftwareName)" />
+    </div>
+
+    <div class="form-group">
+        <label for="authSecret">Authentication Secret</label>
+        <InputText id="authSecret" class="form-control" @bind-Value="@authSecret" />
+        <ValidationMessage For="@(() => authSecret)" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Generate Key</button>
+</EditForm>
+
+@if (!string.IsNullOrEmpty(licenseKey.Key))
+{
+    <div class="alert alert-success" role="alert">
+        License key: @licenseKey.Key
+    </div>
+}
+
+@code {
+    private LicenseKeyModel licenseKey = new LicenseKeyModel();
+    private string authSecret = "";
+
+    private async Task GenerateKey()
+    {
+        try
+        {
+            // Send a POST request to the "GenerateKey" endpoint with a JSON payload
+            var response = await Http.PostAsJsonAsync("api/LicenseKeys/GenerateKey", new
+            {
+                full_name = licenseKey.FullName,
+                software_name = licenseKey.SoftwareName,
+                auth_secret = authSecret
+            }).ConfigureAwait(false);
+
+            // Check if the request was successful
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                // Read the JSON response and deserialize it to a C# object
+                var result = await response.Content.ReadFromJsonAsync<GenerateLicenseKeyResponse>();
+
+                // Set the license key on the licenseKey object
+                licenseKey.Key = result.license_key;
+            }
+            // Check if the request was unauthorized (i.e., the authSecret was incorrect)
+            else if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                // Show an alert with a message
+                await JS.InvokeVoidAsync("alert", "Unauthorized access");
+            }
+            // If the request was not successful, show an alert with a generic error message
+            else
+            {
+                await JS.InvokeVoidAsync("alert", "Failed to generate license key");
+            }
+        }
+        catch(Exception e)
+        {
+            Console.WriteLine(e);
+        }
+    }
+    private class GenerateLicenseKeyResponse
+    {
+        public string license_key { get; set; }
+    }
+
+}
